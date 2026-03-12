@@ -1,0 +1,75 @@
+name: Build NativePHP Android
+
+on:
+  workflow_dispatch:  # ✅ عشان تقدر تشغّل يدوي من الموقع
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest  # ✅ لينكس = أفضل دعم لـ NativePHP
+
+    steps:
+      # 1. جلب الكود من المستودع
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. تثبيت PHP والإضافات المطلوبة
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, pdo_sqlite, sqlite3, openssl, zip
+          tools: composer:v2
+
+      # 3. تثبيت Java و Android SDK
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      # 4. تثبيت اعتماديات المشروع
+      - name: Install Composer dependencies
+        run: |
+          composer install --no-dev --optimize-autoloader --no-interaction
+
+      # 5. تثبيت وتجهيز NativePHP Mobile
+      - name: Setup NativePHP Mobile
+        run: |
+          composer require nativephp/mobile --no-interaction
+          php artisan native:install --no-interaction
+
+      # 6. إنشاء Keystore بسيط للتوقيع (للتجربة)
+      - name: Generate debug keystore
+        run: |
+          mkdir -p credentials/android
+          keytool -genkey -v -keystore credentials/android/app.keystore \
+            -alias myapp -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass android -keypass android \
+            -dname "CN=MyApp,OU=Dev,O=MyOrg,L=Cairo,ST=Cairo,C=EG" \
+            -noprompt
+
+      # 7. إضافة بيانات التوقيع في .env
+      - name: Configure signing
+        run: |
+          echo "ANDROID_KEYSTORE_FILE=credentials/android/app.keystore" >> .env
+          echo "ANDROID_KEYSTORE_PASSWORD=android" >> .env
+          echo "ANDROID_KEY_ALIAS=myapp" >> .env
+          echo "ANDROID_KEY_PASSWORD=android" >> .env
+
+      # 8. بناء الـ APK 🎯
+      - name: Build APK
+        run: php artisan native:package android
+        env:
+          ANDROID_HOME: ${{ env.ANDROID_HOME }}
+          JAVA_HOME: ${{ env.JAVA_HOME }}
+
+      # 9. رفع الـ APK كـ Artifact عشان تنزّله
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: my-app-release
+          path: nativephp/android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 7
