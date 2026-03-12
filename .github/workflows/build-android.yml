@@ -1,26 +1,23 @@
 name: Build NativePHP Android
 
 on:
-  workflow_dispatch:  # ✅ عشان تقدر تشغّل يدوي من الموقع
+  workflow_dispatch:
 
 jobs:
   build-android:
-    runs-on: ubuntu-latest  # ✅ لينكس = أفضل دعم لـ NativePHP
+    runs-on: ubuntu-latest
 
     steps:
-      # 1. جلب الكود من المستودع
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2. تثبيت PHP والإضافات المطلوبة
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.4'
+          php-version: '8.2'
           extensions: mbstring, pdo_sqlite, sqlite3, openssl, zip
           tools: composer:v2
 
-      # 3. تثبيت Java و Android SDK
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -30,18 +27,17 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      # 4. تثبيت اعتماديات المشروع
+      # ✅ تم التعديل هنا: إضافة --ignore-scripts
       - name: Install Composer dependencies
         run: |
-          composer install --no-dev --optimize-autoloader --no-interaction
+          composer install --no-dev --optimize-autoloader --no-interaction --ignore-scripts
 
-      # 5. تثبيت وتجهيز NativePHP Mobile
-      - name: Setup NativePHP Mobile
+      # ✅ تم إضافة خطوة التثبيت اليدوي لـ NativePHP
+      - name: Setup NativePHP Mobile manually
         run: |
-          composer require nativephp/mobile --no-interaction
+          composer require nativephp/mobile --no-interaction --ignore-scripts
           php artisan native:install --no-interaction
 
-      # 6. إنشاء Keystore بسيط للتوقيع (للتجربة)
       - name: Generate debug keystore
         run: |
           mkdir -p credentials/android
@@ -51,7 +47,6 @@ jobs:
             -dname "CN=MyApp,OU=Dev,O=MyOrg,L=Cairo,ST=Cairo,C=EG" \
             -noprompt
 
-      # 7. إضافة بيانات التوقيع في .env
       - name: Configure signing
         run: |
           echo "ANDROID_KEYSTORE_FILE=credentials/android/app.keystore" >> .env
@@ -59,14 +54,12 @@ jobs:
           echo "ANDROID_KEY_ALIAS=myapp" >> .env
           echo "ANDROID_KEY_PASSWORD=android" >> .env
 
-      # 8. بناء الـ APK 🎯
       - name: Build APK
         run: php artisan native:package android
         env:
           ANDROID_HOME: ${{ env.ANDROID_HOME }}
           JAVA_HOME: ${{ env.JAVA_HOME }}
 
-      # 9. رفع الـ APK كـ Artifact عشان تنزّله
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
