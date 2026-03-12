@@ -33,11 +33,11 @@ jobs:
 
       - name: Install dependencies
         run: |
-          composer install --no-dev --no-interaction --optimize-autoloader
+          composer install --no-dev --no-interaction --optimize-autoloader --no-scripts
 
       - name: Install NativePHP Mobile
         run: |
-          composer require nativephp/mobile --no-interaction
+          composer require nativephp/mobile --no-interaction --no-scripts
           php artisan native:install --no-interaction
 
       - name: Create Keystore
