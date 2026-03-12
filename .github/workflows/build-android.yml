@@ -57,11 +57,12 @@ jobs:
           echo "ANDROID_KEY_PASSWORD=android" >> .env
 
       - name: Build APK
-        run: php artisan native:package android
+        run: php artisan native:package android --no-interaction
         env:
           ANDROID_HOME: ${{ env.ANDROID_HOME }}
           JAVA_HOME: ${{ env.JAVA_HOME }}
           GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g"
+          CI: "true"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
