@@ -5,7 +5,7 @@ on:
 
 jobs:
   build-android:
-    runs-on: ubuntu-22.04  # ✅ نسخة أكثر استقرارًا
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout code
@@ -28,17 +28,15 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
         with:
-          sdk-version: '34'  # ✅ حدد نسخة الـ SDK
+          sdk-version: '34'
 
       - name: Accept Android licenses
         run: yes | sdkmanager --licenses || true
 
-      # ✅ حذف --no-scripts عشان الـ NativePHP يشتغل صح
       - name: Install dependencies
         run: |
           composer install --no-dev --no-interaction --optimize-autoloader
 
-      # ✅ حذف --no-scripts هنا كمان
       - name: Install NativePHP Mobile
         run: |
           composer require nativephp/mobile --no-interaction
@@ -59,20 +57,18 @@ jobs:
           echo "ANDROID_KEYSTORE_PASSWORD=android" >> .env
           echo "ANDROID_KEY_ALIAS=myapp" >> .env
           echo "ANDROID_KEY_PASSWORD=android" >> .env
+          
+      - name: Install expect for unbuffer
+        run: sudo apt-get update && sudo apt-get install -y expect
 
-      # ✅ بديل أكثر توافقًا لـ TTY hack
       - name: Build APK
         run: |
-          # منح صلاحيات للـ gradlew
           chmod +x nativephp/android/gradlew
-
-          # محاولة تجاوز مشكلة TTY باستخدام unbuffer أو stdbuf
           if command -v unbuffer &> /dev/null; then
             unbuffer php artisan native:package android --no-interaction
           elif command -v stdbuf &> /dev/null; then
             stdbuf -oL -eL php artisan native:package android --no-interaction
           else
-            # fallback: جرب عادي مع CI=true
             php artisan native:package android --no-interaction
           fi
         env:
@@ -80,10 +76,9 @@ jobs:
           JAVA_HOME: ${{ env.JAVA_HOME }}
           GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g"
           CI: "true"
-          TERM: "xterm"
-          NATIVEPHP_SKIP_TTY_CHECK: "1"  # ✅ متغير قد يساعد لو موجود في الكود
+          TERM: "dumb"
+          NATIVEPHP_SKIP_TTY_CHECK: "1"
 
-      # ✅ بحث عن الـ APK في مسارات متعددة
       - name: Find and Upload APK
         run: |
           echo "Searching for APK files..."
@@ -98,4 +93,4 @@ jobs:
             nativephp/android/app/build/outputs/apk/release/*.apk
             nativephp/android/app/build/outputs/bundle/release/*.aab
           retention-days: 14
-          if-no-files-found: warn  # ✅ يظهر تحذير بدل فشل الـ job
+          if-no-files-found: warn
