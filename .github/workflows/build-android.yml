@@ -108,6 +108,18 @@ jobs:
           ls -la gradle.properties
           pwd
 
+      - name: Debug - Show environment
+        run: |
+          echo "=== .env content ==="
+          cat .env
+          echo "=== gradle.properties content ==="
+          cat gradle.properties
+          echo "=== Keystore exists ==="
+          ls -la credentials/android/app.keystore
+          echo "=== PHP env vars ==="
+          php -r "echo 'ANDROID_KEYSTORE_FILE: ' . getenv('ANDROID_KEYSTORE_FILE') . PHP_EOL;"
+
+
       - name: Build APK
         run: |
           php artisan native:package android --no-interaction
