@@ -57,7 +57,7 @@
             "@php artisan test"
         ],
         "post-autoload-dump": [
-            "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
+            "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump"
 
         ],
         "post-update-cmd": [
