@@ -29,3 +29,44 @@ public/vibe/
 
 # Credential files (keystores, private keys, etc.)
 /credentials/
+
+
+# ===========================
+# Laravel / PHP
+# ===========================
+.env
+.env*.local
+vendor/
+storage/*.key
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+bootstrap/cache/*
+
+# ===========================
+# NativePHP Android - Secrets & Build (ماتترفعش)
+# ===========================
+nativephp/android/app/build/
+nativephp/android/build/
+nativephp/android/.gradle/
+nativephp/android/local.properties
+nativephp/android/gradle.properties
+nativephp/android/.idea/
+nativephp/android/captures/
+nativephp/android/app/*.keystore
+nativephp/android/app/*.jks
+credentials/
+*.keystore
+*.jks
+
+# ===========================
+# IDE / OS
+# ===========================
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+node_modules/

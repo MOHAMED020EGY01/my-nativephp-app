@@ -42,14 +42,12 @@ jobs:
           composer require nativephp/mobile --no-interaction
           php artisan native:install --no-interaction
 
-      # ✅ جديد: تحقق من native.php قبل الـ build
       - name: Verify native.php exists BEFORE build
         run: |
-          echo "=== Checking native.php before build ==="
           if [ -f "vendor/nativephp/mobile/bootstrap/android/native.php" ]; then
-            echo "✅ native.php found!"
+            echo "native.php found"
           else
-            echo "❌ native.php NOT found!"
+            echo "native.php NOT found"
             exit 1
           fi
 
@@ -62,33 +60,34 @@ jobs:
             -dname "CN=MyApp,OU=Dev,O=MyOrg,L=Cairo,ST=Cairo,C=EG" \
             -noprompt
 
-      - name: Set environment variables
-        run: |
-          echo "ANDROID_KEYSTORE_FILE=credentials/android/app.keystore" >> .env
-          echo "ANDROID_KEYSTORE_PASSWORD=android" >> .env
-          echo "ANDROID_KEY_ALIAS=myapp" >> .env
-          echo "ANDROID_KEY_PASSWORD=android" >> .env
-
       - name: Install expect for unbuffer
         run: sudo apt-get update && sudo apt-get install -y expect
 
-      # ✅ جديد: تحقق من حجم الباندل
       - name: Check bundle archive size
         run: |
-          echo "=== Checking bundle size ==="
           find nativephp/android/app/src/main/assets -name "*.zip" -exec ls -lh {} \;
-          du -sh nativephp/android/app/src/main/assets/ || echo "⚠️ Assets folder not found"
+          du -sh nativephp/android/app/src/main/assets/ || echo "Assets folder not found"
 
-      - name: Build APK
+      - name: Verify native.php path
         run: |
-          chmod +x nativephp/android/gradlew
-          if command -v unbuffer &> /dev/null; then
-            unbuffer php artisan native:package android --no-interaction
-          elif command -v stdbuf &> /dev/null; then
-            stdbuf -oL -eL php artisan native:package android --no-interaction
-          else
-            php artisan native:package android --no-interaction
-          fi
+          find vendor/nativephp/mobile -name "native.php" -type f
+          ls -la vendor/nativephp/mobile/bootstrap/android/ || echo "Directory not found"
+
+      - name: Build APK with explicit Gradle properties
+        run: |
+          cat > gradle.properties << 'EOF'
+          nativephp.app_id=com.mohamedmohamed.swiftgoldenlunar
+          nativephp.version_code=${{ github.run_number }}
+          nativephp.version_name=1.0.${{ github.run_number }}
+          nativephp.minify_enabled=false
+          nativephp.shrink_resources=false
+          nativephp.debug_symbols=FULL
+          MYAPP_UPLOAD_STORE_FILE=credentials/android/app.keystore
+          MYAPP_UPLOAD_KEY_ALIAS=myapp
+          MYAPP_UPLOAD_STORE_PASSWORD=android
+          MYAPP_UPLOAD_KEY_PASSWORD=android
+          EOF
+          php artisan native:package android --no-interaction
         env:
           ANDROID_HOME: ${{ env.ANDROID_HOME }}
           JAVA_HOME: ${{ env.JAVA_HOME }}
@@ -99,40 +98,33 @@ jobs:
 
       - name: Extract and verify APK contents
         run: |
-          echo "=== Extracting APK to verify contents ==="
           mkdir -p /tmp/apk-extract
           cd /tmp/apk-extract
-          unzip -o /home/runner/work/my-nativephp-app/my-nativephp-app/nativephp/android/app/build/outputs/apk/release/app-release.apk
-          echo "=== Looking for native.php ==="
+          APK_PATH=$(find /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }} -name "app-release.apk" -type f | head -1)
+          if [ -f "$APK_PATH" ]; then
+            unzip -o "$APK_PATH"
+            echo "APK extracted successfully"
+          else
+            echo "APK not found"
+            find /home/runner/work -name "*.apk" -type f || true
+            exit 1
+          fi
           find . -name "native.php" -type f
-          echo "=== Assets size ==="
           du -sh assets/ || true
         continue-on-error: true
 
       - name: Deep check native.php inside laravel_bundle.zip
         run: |
-          echo "=== Checking inside laravel_bundle.zip ==="
           cd /tmp/apk-extract/assets
-
-          # قائمة بكل الملفات اللي فيها native.php
-          echo "=== Searching for native.php in bundle ==="
-          unzip -l laravel_bundle.zip | grep -i "native.php" || echo "❌ native.php NOT found in bundle!"
-
-          # هل الملف في المسار الصح؟
-          echo "=== Checking expected path ==="
-          unzip -l laravel_bundle.zip | grep -i "vendor/nativephp/mobile/bootstrap/android/native.php" || echo "⚠️ Not in expected path"
-
-          # أول 50 ملف في الباندل
-          echo "=== First 50 files in bundle ==="
+          unzip -l laravel_bundle.zip | grep -i "native.php" || echo "native.php NOT found in bundle"
+          unzip -l laravel_bundle.zip | grep -i "vendor/nativephp/mobile/bootstrap/android/native.php" || echo "Not in expected path"
           unzip -l laravel_bundle.zip | head -50
-
-          # حجم الباندل
-          echo "=== Bundle size ==="
           ls -lh laravel_bundle.zip
+        continue-on-error: true
 
       - name: Find and Upload APK
         run: |
-          echo "Searching for APK files..."
+          echo "Searching for APK files"
           find nativephp/android/app/build -name "*.apk" -type f || true
         continue-on-error: true
 
