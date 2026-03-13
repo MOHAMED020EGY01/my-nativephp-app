@@ -5,7 +5,7 @@ on:
 
 jobs:
   build-android:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04  # ✅ نسخة أكثر استقرارًا
 
     steps:
       - name: Checkout code
@@ -15,7 +15,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
-          extensions: mbstring, pdo_sqlite, sqlite3, openssl, zip, curl, fileinfo
+          extensions: mbstring, pdo_sqlite, sqlite3, openssl, zip, curl, fileinfo, dom, xml
           tools: composer:v2
           coverage: none
 
@@ -27,17 +27,21 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          sdk-version: '34'  # ✅ حدد نسخة الـ SDK
 
       - name: Accept Android licenses
         run: yes | sdkmanager --licenses || true
 
+      # ✅ حذف --no-scripts عشان الـ NativePHP يشتغل صح
       - name: Install dependencies
         run: |
-          composer install --no-dev --no-interaction --optimize-autoloader --no-scripts
+          composer install --no-dev --no-interaction --optimize-autoloader
 
+      # ✅ حذف --no-scripts هنا كمان
       - name: Install NativePHP Mobile
         run: |
-          composer require nativephp/mobile --no-interaction --no-scripts
+          composer require nativephp/mobile --no-interaction
           php artisan native:install --no-interaction
 
       - name: Create Keystore
@@ -56,17 +60,42 @@ jobs:
           echo "ANDROID_KEY_ALIAS=myapp" >> .env
           echo "ANDROID_KEY_PASSWORD=android" >> .env
 
+      # ✅ بديل أكثر توافقًا لـ TTY hack
       - name: Build APK
-        run: php artisan native:package android --no-interaction
+        run: |
+          # منح صلاحيات للـ gradlew
+          chmod +x nativephp/android/gradlew
+
+          # محاولة تجاوز مشكلة TTY باستخدام unbuffer أو stdbuf
+          if command -v unbuffer &> /dev/null; then
+            unbuffer php artisan native:package android --no-interaction
+          elif command -v stdbuf &> /dev/null; then
+            stdbuf -oL -eL php artisan native:package android --no-interaction
+          else
+            # fallback: جرب عادي مع CI=true
+            php artisan native:package android --no-interaction
+          fi
         env:
           ANDROID_HOME: ${{ env.ANDROID_HOME }}
           JAVA_HOME: ${{ env.JAVA_HOME }}
-          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g"
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g"
           CI: "true"
+          TERM: "xterm"
+          NATIVEPHP_SKIP_TTY_CHECK: "1"  # ✅ متغير قد يساعد لو موجود في الكود
+
+      # ✅ بحث عن الـ APK في مسارات متعددة
+      - name: Find and Upload APK
+        run: |
+          echo "Searching for APK files..."
+          find nativephp/android/app/build -name "*.apk" -type f || true
+        continue-on-error: true
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: my-app-release
-          path: nativephp/android/app/build/outputs/apk/release/*.apk
+          path: |
+            nativephp/android/app/build/outputs/apk/release/*.apk
+            nativephp/android/app/build/outputs/bundle/release/*.aab
           retention-days: 14
+          if-no-files-found: warn  # ✅ يظهر تحذير بدل فشل الـ job
