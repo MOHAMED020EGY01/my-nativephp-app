@@ -97,7 +97,6 @@ jobs:
           TERM: "dumb"
           NATIVEPHP_SKIP_TTY_CHECK: "1"
 
-      # ✅ جديد: تحقق من محتوى الـ APK
       - name: Extract and verify APK contents
         run: |
           echo "=== Extracting APK to verify contents ==="
@@ -109,6 +108,27 @@ jobs:
           echo "=== Assets size ==="
           du -sh assets/ || true
         continue-on-error: true
+
+      - name: Deep check native.php inside laravel_bundle.zip
+        run: |
+          echo "=== Checking inside laravel_bundle.zip ==="
+          cd /tmp/apk-extract/assets
+
+          # قائمة بكل الملفات اللي فيها native.php
+          echo "=== Searching for native.php in bundle ==="
+          unzip -l laravel_bundle.zip | grep -i "native.php" || echo "❌ native.php NOT found in bundle!"
+
+          # هل الملف في المسار الصح؟
+          echo "=== Checking expected path ==="
+          unzip -l laravel_bundle.zip | grep -i "vendor/nativephp/mobile/bootstrap/android/native.php" || echo "⚠️ Not in expected path"
+
+          # أول 50 ملف في الباندل
+          echo "=== First 50 files in bundle ==="
+          unzip -l laravel_bundle.zip | head -50
+
+          # حجم الباندل
+          echo "=== Bundle size ==="
+          ls -lh laravel_bundle.zip
 
       - name: Find and Upload APK
         run: |
