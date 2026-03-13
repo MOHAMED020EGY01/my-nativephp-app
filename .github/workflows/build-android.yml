@@ -42,6 +42,17 @@ jobs:
           composer require nativephp/mobile --no-interaction
           php artisan native:install --no-interaction
 
+      # ✅ جديد: تحقق من native.php قبل الـ build
+      - name: Verify native.php exists BEFORE build
+        run: |
+          echo "=== Checking native.php before build ==="
+          if [ -f "vendor/nativephp/mobile/bootstrap/android/native.php" ]; then
+            echo "✅ native.php found!"
+          else
+            echo "❌ native.php NOT found!"
+            exit 1
+          fi
+
       - name: Create Keystore
         run: |
           mkdir -p credentials/android
@@ -57,9 +68,16 @@ jobs:
           echo "ANDROID_KEYSTORE_PASSWORD=android" >> .env
           echo "ANDROID_KEY_ALIAS=myapp" >> .env
           echo "ANDROID_KEY_PASSWORD=android" >> .env
-          
+
       - name: Install expect for unbuffer
         run: sudo apt-get update && sudo apt-get install -y expect
+
+      # ✅ جديد: تحقق من حجم الباندل
+      - name: Check bundle archive size
+        run: |
+          echo "=== Checking bundle size ==="
+          find nativephp/android/app/src/main/assets -name "*.zip" -exec ls -lh {} \;
+          du -sh nativephp/android/app/src/main/assets/ || echo "⚠️ Assets folder not found"
 
       - name: Build APK
         run: |
@@ -78,6 +96,19 @@ jobs:
           CI: "true"
           TERM: "dumb"
           NATIVEPHP_SKIP_TTY_CHECK: "1"
+
+      # ✅ جديد: تحقق من محتوى الـ APK
+      - name: Extract and verify APK contents
+        run: |
+          echo "=== Extracting APK to verify contents ==="
+          mkdir -p /tmp/apk-extract
+          cd /tmp/apk-extract
+          unzip -o /home/runner/work/my-nativephp-app/my-nativephp-app/nativephp/android/app/build/outputs/apk/release/app-release.apk
+          echo "=== Looking for native.php ==="
+          find . -name "native.php" -type f
+          echo "=== Assets size ==="
+          du -sh assets/ || true
+        continue-on-error: true
 
       - name: Find and Upload APK
         run: |
